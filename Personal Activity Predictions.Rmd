@@ -1,0 +1,129 @@
+Activity Prediction with Random Forest Algorythm
+========================================================
+
+In this article we show how to get predictions about personal activity from a device that records such activities. 
+
+We first load datasets into data frames:
+
+```{r}
+trainingData <- read.csv("pml-training.csv")
+testData <- read.csv("pml-testing.csv")
+```
+
+Then we take a look at the head of the data for an insight on which data woudl be useful for our purposes.
+
+```{r}
+head(trainingData, n=3)
+```
+
+We see that many of the variables have either missing data or NA for data. We exclude thsoe and make a list of useful data variables:
+
+
+
+```{r}
+useful_variables <- c("roll_belt", "pitch_belt", "yaw_belt", "total_accel_belt",
+                      "gyros_belt_x", "gyros_belt_y", "gyros_belt_z",
+                      "accel_belt_x", "accel_belt_y", "accel_belt_z", 
+                      "magnet_belt_x", "magnet_belt_y",
+                        "magnet_belt_z", "roll_arm", "pitch_arm",
+                        "yaw_arm", "total_accel_arm", "gyros_arm_x",
+                        "gyros_arm_y", "gyros_arm_z", "accel_arm_x",
+                      "accel_arm_y", "accel_arm_z", "magnet_arm_x", "magnet_arm_y", 
+                        "magnet_arm_z", "roll_dumbbell", "pitch_dumbbell", "yaw_dumbbell",
+                      "gyros_dumbbell_y", "gyros_dumbbell_z", "accel_dumbbell_x",
+                      "accel_dumbbell_y", "accel_dumbbell_z", "magnet_dumbbell_x",
+                        "magnet_dumbbell_y", "magnet_dumbbell_z",
+                      "roll_forearm", "pitch_forearm", "yaw_forearm",
+                      "gyros_forearm_x", "gyros_forearm_y",
+                      "gyros_forearm_z", "accel_forearm_x", 
+                      "accel_forearm_y", "accel_forearm_z", "magnet_forearm_x",
+                      "magnet_forearm_y", "magnet_forearm_z", "classe"
+                      )
+```
+
+We create the new "clean" data frames with only the complete sets of observations
+
+```{r}
+cleanTrainingData <- trainingData[useful_variables]
+```
+
+Then we create the splitdf function that will return a list of training and testing sets
+
+```{r}
+splitdf <- function(dataframe, seed=NULL) {
+        if (!is.null(seed)) set.seed(seed)
+        index <- 1:nrow(dataframe)
+        trainindex <- sample(index, trunc(length(index)/2))
+        trainset <- dataframe[trainindex, ]
+        testset <- dataframe[-trainindex, ]
+        list(trainset=trainset,testset=testset)
+}
+```
+
+Next, we apply the function on the cleaned training data in order to get a new training and test sets:
+
+```{r}
+splits <- splitdf(cleanTrainingData, seed=808)
+```
+
+Wesave the training and testing sets as data frames
+
+```{r}
+training <- splits$trainset
+testing <- splits$testset
+```
+
+For our predictive algoryth we will use the Random Forest algorythm. First, we load the Random Forest library
+
+```{r}
+library(randomForest)
+```
+
+We fit the randomForest model
+
+```{r}
+model <- randomForest(classe~., 
+                      data = training, 
+                      importance=TRUE,
+                      keep.forest=TRUE
+)
+```
+
+```{r}
+print(model)
+```
+
+We see that the error rate for this model and this training data is 0.82%. We expect the error rate with the test set to be little larger, about 1%.
+
+Next, we take a look at the importance of various variables for this model.
+
+```{r}
+varImpPlot(model, type=1)
+```
+
+
+Next, we use the model to make the predictions on the cleaned test Data set:
+```{r}
+predicted <- predict(model, newdata=testing[ ,-50])
+```
+
+
+We want to compare the predicted data to the actual data. For that purpose we look at the number of miscategorized data points
+```{r}
+actual <- testing$classe
+sum(actual != predicted)
+```
+
+We see that there are 98 incorrectly predicted observations. Since out testing data has a total of 9811 observations, this error rate is almsot exactly 1%, as we had expected.
+
+Finally, we take a look at the testData. We clean it, and then we make the prediction on it based on our model.
+
+```{r}
+useful_variables_2 <- useful_variables[1:49]
+cleanTestData <- testData[useful_variables_2]
+predicted_2 <- predict(model, cleanTestData)
+predicted_2
+```
+
+We eneter these predictions into the course testing site. All of the predictions turn out to be correct. This validates our modeling algorythm. 
+
